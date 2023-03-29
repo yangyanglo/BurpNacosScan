@@ -5,4 +5,5 @@ BurpExtender-NacosScan
 <img width="854" alt="image" src="https://user-images.githubusercontent.com/65865031/228342050-c1874867-821d-4f77-b221-a6c72ec500be.png">
 
 根目录下添加/nacos/和/nacos，根据响应码判断是否存在nacos
-<img width="1679" alt="image" src="https://user-images.githubusercontent.com/65865031/228342147-2420facc-0f82-4868-b9e9-613f6f3c0c5a.png">
+<img width="1656" alt="image" src="https://user-images.githubusercontent.com/65865031/228418173-09e7e5c3-3c45-4a06-9418-7de962bb81f7.png">
+
