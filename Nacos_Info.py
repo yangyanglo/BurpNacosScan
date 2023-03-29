@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import urllib2
 from java.awt import BorderLayout
 from java.awt import Component
@@ -11,6 +12,8 @@ from javax.swing.table import DefaultTableModel
 from burp import IBurpExtender
 from burp import ITab
 from burp import IScannerCheck
+import datetime
+from urlparse import urlparse
 
 class BurpExtender(IBurpExtender, ITab, IScannerCheck):
 
@@ -32,8 +35,7 @@ class BurpExtender(IBurpExtender, ITab, IScannerCheck):
         return "NacosScan"
 
     def getUiComponent(self):
-        self._table = JTable(DefaultTableModel(["Index", "URL", "REALURL"], 0))
-        # self._table.getModel().addRow([1, "test"])
+        self._table = JTable(DefaultTableModel(["Index", "URL", "statusCode", "REALURL", "startTime", "endTime"], 0))
         scroll_pane = JScrollPane(self._table)
         scroll_pane.setPreferredSize(Dimension(800, 400))
 
@@ -46,36 +48,44 @@ class BurpExtender(IBurpExtender, ITab, IScannerCheck):
         self._callbacks.printOutput(message + "\n")
 
     def scan(self, base_url):
+        initial_time = datetime.datetime.now()
+        startTime = initial_time.strftime('%Y-%m-%d %H:%M:%S')
         print("scan called!")
-        url1 = str(base_url) + "nacos/"
-        url2 = str(base_url) + "nacos"
+        url1 = str(base_url) + "/nacos/"
+        url2 = str(base_url) + "/nacos"
 
         try:
-            # self.log("Testing {0}".format(url))
-
-            # send the request and obtain the response
             req1 = urllib2.urlopen(url1)
-            if req1.getcode() == 200:
-                print("addRow1")
-                self._table.getModel().addRow([self._table.getRowCount(), url1, req1.geturl()])
+            if req1.getcode() == 200 or req1.getcode() == 302:
+                now = datetime.datetime.now()
+                endTime = now.strftime('%Y-%m-%d %H:%M:%S')
+                self._table.getModel().addRow([self._table.getRowCount(), url1, str(req1.getcode()), req1.geturl(), str(startTime), str(endTime)])
 
-            req2 = urllib2.urlopen(url2)
-            if req2.getcode() == 200:
-                print("addRow2")
-                self._table.getModel().addRow([self._table.getRowCount(), url2, req2.geturl()])
+            opener = urllib2.build_opener(urllib2.HTTPRedirectHandler())
+            req2 = opener.open(url2)
 
+            if req2.getcode() == 302 or req2.getcode() == 200:
+                self._table.getModel().addRow([self._table.getRowCount(), url2, str(req2.getcode()), req2.geturl(), str(startTime), str(endTime)])
 
         except Exception as e:
             self.log("Error: {0}".format(str(e)))
             pass
+    def __init__(self):
+        self.visited_hosts = set()
 
     def doPassiveScan(self, baseRequestResponse):
-        # print("doPassiveScan called!")
+        visited_hosts = set()
         url = baseRequestResponse.getUrl()
-        # print("Scanning URL: " + url.toString())
-        if url.getPath() == "/":
-            print(url)
-            self.scan(url)
+        host = url.getHost()
+        parsed_url = urlparse(str(url))
+        protocol = parsed_url.scheme
+        netloc = parsed_url.netloc
+        full_url = protocol + "://" + netloc
+        print(str(full_url))
+
+        if host not in self.visited_hosts:
+            self.visited_hosts.add(host)
+            self.scan(str(full_url))
         return None
 
     def doActiveScan(self, baseRequestResponse, insertionPoint):
