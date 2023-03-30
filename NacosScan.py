@@ -15,6 +15,11 @@ from burp import IScannerCheck
 import datetime
 from urlparse import urlparse
 
+class NoRedirectHandler(urllib2.HTTPErrorProcessor):
+    def http_response(self, request, response):
+        return response
+    https_response = http_response
+
 class BurpExtender(IBurpExtender, ITab, IScannerCheck):
 
     def registerExtenderCallbacks(self, callbacks):
@@ -35,7 +40,7 @@ class BurpExtender(IBurpExtender, ITab, IScannerCheck):
         return "NacosScan"
 
     def getUiComponent(self):
-        self._table = JTable(DefaultTableModel(["Index", "URL", "statusCode", "REALURL", "startTime", "endTime"], 0))
+        self._table = JTable(DefaultTableModel(["Index", "URL", "statusCode", "REALURL", "size", "startTime", "endTime"], 0))
         scroll_pane = JScrollPane(self._table)
         scroll_pane.setPreferredSize(Dimension(800, 400))
 
@@ -48,28 +53,37 @@ class BurpExtender(IBurpExtender, ITab, IScannerCheck):
         self._callbacks.printOutput(message + "\n")
 
     def scan(self, base_url):
+
         initial_time = datetime.datetime.now()
         startTime = initial_time.strftime('%Y-%m-%d %H:%M:%S')
         print("scan called!")
-        url1 = str(base_url) + "/nacos/"
-        url2 = str(base_url) + "/nacos"
+        # urls = {"/nacos/", "/nacos","/api/swagger-ui.html", "/swagger-ui.html", "/actuator", "/actuator/heapdump"}
+        with open('conf.ini', 'r') as f:
+            for url in f.readlines():
+                full_url = str(base_url) + str(url)
 
-        try:
-            req1 = urllib2.urlopen(url1)
-            if req1.getcode() == 200 or req1.getcode() == 302:
-                now = datetime.datetime.now()
-                endTime = now.strftime('%Y-%m-%d %H:%M:%S')
-                self._table.getModel().addRow([self._table.getRowCount(), url1, str(req1.getcode()), req1.geturl(), str(startTime), str(endTime)])
+                try:
+                    urllib2.install_opener(urllib2.build_opener(NoRedirectHandler))
+                    request = urllib2.Request(full_url)
+                    response = urllib2.urlopen(request)
+                    get_code = response.code
+                    response_size = len(response.read())
 
-            opener = urllib2.build_opener(urllib2.HTTPRedirectHandler())
-            req2 = opener.open(url2)
+                    if get_code == 200:
+                        now = datetime.datetime.now()
+                        endTime = now.strftime('%Y-%m-%d %H:%M:%S')
+                        self._table.getModel().addRow([self._table.getRowCount(), str(full_url), str(get_code), str(response.geturl()), str(response_size),str(startTime), str(endTime)])
+                    elif get_code == 302:
+                        now = datetime.datetime.now()
+                        endTime = now.strftime('%Y-%m-%d %H:%M:%S')
+                        redirected_url = response.headers.get('Location')
+                        self._table.getModel().addRow([self._table.getRowCount(), str(full_url), str(get_code), str(redirected_url), str(response_size),str(startTime), str(endTime)])
 
-            if req2.getcode() == 302 or req2.getcode() == 200:
-                self._table.getModel().addRow([self._table.getRowCount(), url2, str(req2.getcode()), req2.geturl(), str(startTime), str(endTime)])
+                except Exception as e:
+                    self.log("Error: {0}".format(str(e)))
+                    pass
 
-        except Exception as e:
-            self.log("Error: {0}".format(str(e)))
-            pass
+
     def __init__(self):
         self.visited_hosts = set()
 
