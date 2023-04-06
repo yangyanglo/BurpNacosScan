@@ -83,12 +83,11 @@ class BurpExtender(IBurpExtender, ITab, IScannerCheck):
                     self.log("Error: {0}".format(str(e)))
                     pass
 
-
     def __init__(self):
-        self.visited_hosts = set()
+        self.visited_urls = set()
 
     def doPassiveScan(self, baseRequestResponse):
-        visited_hosts = set()
+        visited_urls = set()
         url = baseRequestResponse.getUrl()
         host = url.getHost()
         parsed_url = urlparse(str(url))
@@ -97,8 +96,8 @@ class BurpExtender(IBurpExtender, ITab, IScannerCheck):
         full_url = protocol + "://" + netloc
         print(str(full_url))
 
-        if host not in self.visited_hosts:
-            self.visited_hosts.add(host)
+        if full_url not in self.visited_urls:
+            self.visited_urls.add(full_url)
             self.scan(str(full_url))
         return None
 
